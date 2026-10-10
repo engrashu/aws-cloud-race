@@ -1,0 +1,526 @@
+<title>AWS Cloud Race</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
+
+  /* Layout: single-column game board, max 680px, centered */
+  :root {
+    --bg: #0F1923;
+    --surface: #172A3A;
+    --surface-hi: #1E3548;
+    --fg: #E8EDF2;
+    --fg-dim: #8A9BB0;
+    --accent: #00D4AA;
+    --accent-glow: rgba(0,212,170,0.15);
+    --correct: #00D4AA;
+    --wrong: #FF6B6B;
+    --gold: #FFD93D;
+    --track: #253D50;
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F0F4F8;
+      --surface: #FFFFFF;
+      --surface-hi: #E8EEF4;
+      --fg: #1A2B3C;
+      --fg-dim: #5A6E82;
+      --accent: #00A884;
+      --accent-glow: rgba(0,168,132,0.1);
+      --correct: #00A884;
+      --wrong: #E04B4B;
+      --gold: #E6A800;
+      --track: #D4DEE8;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F0F4F8;
+    --surface: #FFFFFF;
+    --surface-hi: #E8EEF4;
+    --fg: #1A2B3C;
+    --fg-dim: #5A6E82;
+    --accent: #00A884;
+    --accent-glow: rgba(0,168,132,0.1);
+    --correct: #00A884;
+    --wrong: #E04B4B;
+    --gold: #E6A800;
+    --track: #D4DEE8;
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    padding-inline: 16px;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  .game-wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding-block: 24px 48px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    text-align: center;
+    color: var(--fg-dim);
+    font-size: 0.875rem;
+    margin: 0 0 24px;
+  }
+
+  /* Score bar */
+  .score-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+  }
+  .score-bar .label { color: var(--fg-dim); font-size: 0.8rem; }
+  .score-bar .value { font-weight: 700; font-size: 1.1rem; }
+  .score-bar .correct-val { color: var(--correct); }
+  .score-bar .wrong-val { color: var(--wrong); }
+
+  /* Track visual */
+  .track {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 24px;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .track-seg {
+    flex: 1;
+    background: var(--track);
+    transition: background 0.3s;
+  }
+  .track-seg.done { background: var(--correct); }
+  .track-seg.wrong-seg { background: var(--wrong); }
+  .track-seg.current { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+
+  /* Question card */
+  .q-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .q-week {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    font-family: var(--font-display);
+  }
+  .q-text {
+    font-size: 1.05rem;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  /* Options */
+  .options { display: grid; gap: 10px; }
+  .opt-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: var(--surface-hi);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--fg);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    line-height: 1.4;
+  }
+  .opt-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .opt-btn:disabled { cursor: default; opacity: 0.85; }
+  .opt-btn.selected-correct {
+    border-color: var(--correct);
+    background: rgba(0,212,170,0.12);
+  }
+  .opt-btn.selected-wrong {
+    border-color: var(--wrong);
+    background: rgba(255,107,107,0.12);
+  }
+  .opt-btn.reveal-correct {
+    border-color: var(--correct);
+  }
+
+  /* Explanation */
+  .explain {
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: var(--accent-glow);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+    color: var(--fg-dim);
+    line-height: 1.5;
+  }
+  .explain strong { color: var(--fg); }
+
+  /* Next button */
+  .next-btn {
+    display: block;
+    width: 100%;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: opacity 0.2s;
+  }
+  .next-btn:hover { opacity: 0.9; }
+
+  /* Instructions / screens */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .instructions {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 28px 24px;
+    margin-bottom: 20px;
+  }
+  .instructions h2 {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    margin: 0 0 16px;
+    font-weight: 700;
+  }
+  .instructions p, .instructions li {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--fg-dim);
+    margin: 0 0 8px;
+  }
+  .instructions ol { padding-left: 20px; margin: 12px 0; }
+
+  .start-btn {
+    display: block;
+    width: 100%;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .start-btn:hover { opacity: 0.9; }
+
+  /* Results */
+  .results {
+    text-align: center;
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 40px 24px;
+  }
+  .results h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    margin: 0 0 8px;
+  }
+  .big-score {
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 16px 0 8px;
+  }
+  .big-score small { font-size: 1.2rem; color: var(--fg-dim); }
+  .grade-msg {
+    font-size: 1rem;
+    color: var(--fg-dim);
+    margin-bottom: 24px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 28px;
+  }
+  .stat-item .stat-num { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; }
+  .stat-item .stat-label { font-size: 0.75rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .week-label { font-size: 0.7rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--font-display); }
+</style>
+
+<div class="game-wrap">
+  <h1>AWS <span>Cloud Race</span></h1>
+  <p class="subtitle">AWS Cloud Practitioner Exam Prep Game — 55 Questions</p>
+
+  <!-- INTRO SCREEN -->
+  <div class="screen active" id="intro-screen">
+    <div class="instructions">
+      <h2>How to Play</h2>
+      <ol>
+        <li>You will race through <strong>55 AWS questions</strong> covering 6 weeks of content.</li>
+        <li>Each question has <strong>4 options</strong> — pick the correct answer.</li>
+        <li>A correct answer moves you forward on the track. A wrong answer marks it red.</li>
+        <li>After each answer, read the <strong>explanation</strong> to learn why it's correct.</li>
+        <li>At the end, you get your <strong>score and grade</strong>.</li>
+      </ol>
+      <p>Topics covered: AWS Global Infrastructure, Compute, Storage, Databases, Networking, Security, IAM, Well-Architected Framework, Pricing, Support, and more.</p>
+      <p style="margin-top:12px"><strong>Created by:</strong> Betrand Ashu — IT 335, Ensign College</p>
+    </div>
+    <button class="start-btn" onclick="startGame()">Start the Race</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="game-screen">
+    <div class="score-bar">
+      <div><span class="label">Question</span><br><span class="value" id="q-num">1/55</span></div>
+      <div><span class="label">Correct</span><br><span class="value correct-val" id="s-correct">0</span></div>
+      <div><span class="label">Wrong</span><br><span class="value wrong-val" id="s-wrong">0</span></div>
+      <div><span class="label">Score</span><br><span class="value" id="s-pct">0%</span></div>
+    </div>
+    <div class="track" id="track"></div>
+    <div id="q-area"></div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div class="screen" id="results-screen">
+    <div class="results">
+      <h2>Race Complete!</h2>
+      <div class="big-score"><span id="r-score">0</span><small> / 55</small></div>
+      <div class="grade-msg" id="r-msg"></div>
+      <div class="stat-row">
+        <div class="stat-item"><div class="stat-num correct-val" id="r-correct">0</div><div class="stat-label">Correct</div></div>
+        <div class="stat-item"><div class="stat-num wrong-val" id="r-wrong">0</div><div class="stat-label">Wrong</div></div>
+        <div class="stat-item"><div class="stat-num" id="r-pct">0%</div><div class="stat-label">Accuracy</div></div>
+      </div>
+      <button class="start-btn" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALL_QUESTIONS = [
+  // ===== WEEK 1 (5 questions): AWS Global Infrastructure =====
+  {w:1,q:"What is an AWS Region?",opts:["A) A single data center","B) A geographic area with multiple isolated data centers","C) A virtual private network","D) A content delivery endpoint"],ans:1,exp:"An AWS Region is a geographic area containing multiple Availability Zones, each with one or more data centers."},
+  {w:1,q:"What is the primary purpose of an Availability Zone?",opts:["A) Reduce monthly costs","B) Cache content closer to users","C) Provide fault isolation within a Region","D) Manage user permissions"],ans:2,exp:"Availability Zones are isolated locations within a Region, designed so a failure in one does not affect the others."},
+  {w:1,q:"What are AWS Edge Locations used for?",opts:["A) Running EC2 instances","B) Storing databases","C) Caching content closer to end users via CloudFront","D) Managing IAM policies"],ans:2,exp:"Edge Locations are endpoints for CloudFront that cache content near users to reduce latency."},
+  {w:1,q:"Which statement best describes a data center within AWS?",opts:["A) A virtual machine","B) A physical facility housing servers, storage, and networking equipment","C) A software tool for monitoring","D) A pricing calculator"],ans:1,exp:"A data center is a physical building with servers, storage, and network hardware that powers AWS services."},
+  {w:1,q:"Why would a company choose an AWS Region closest to its customers?",opts:["A) To get a discount","B) To reduce latency and improve performance","C) To avoid using Availability Zones","D) To eliminate the need for security"],ans:1,exp:"Placing resources near customers reduces the time data travels, lowering latency and improving user experience."},
+
+  // ===== WEEK 2 (10 questions): Compute, Storage, VPC, Value Proposition =====
+  {w:2,q:"What is Amazon EC2?",opts:["A) A managed database service","B) A virtual server in the cloud","C) A content delivery network","D) A monitoring service"],ans:1,exp:"Amazon EC2 (Elastic Compute Cloud) provides resizable virtual servers in the cloud."},
+  {w:2,q:"Which AWS service provides object storage?",opts:["A) Amazon EBS","B) Amazon RDS","C) Amazon S3","D) Amazon EC2"],ans:2,exp:"Amazon S3 (Simple Storage Service) stores and retrieves any amount of data as objects in buckets."},
+  {w:2,q:"What is the purpose of Amazon VPC?",opts:["A) To deliver content globally","B) To create an isolated virtual network in the cloud","C) To monitor application performance","D) To manage billing"],ans:1,exp:"Amazon VPC (Virtual Private Cloud) lets you launch resources in an isolated virtual network you define."},
+  {w:2,q:"Which EC2 pricing model offers the lowest cost for flexible, interruptible workloads?",opts:["A) On-Demand","B) Reserved Instances","C) Spot Instances","D) Dedicated Hosts"],ans:2,exp:"Spot Instances offer up to 90% savings for workloads that can tolerate interruptions."},
+  {w:2,q:"What does Amazon RDS provide?",opts:["A) Object storage","B) A managed relational database service","C) Serverless compute","D) DNS management"],ans:1,exp:"Amazon RDS manages relational databases like MySQL, PostgreSQL, and SQL Server with automated backups and patching."},
+  {w:2,q:"Which service runs containers without managing servers?",opts:["A) Amazon EC2","B) Amazon S3","C) AWS Fargate","D) Amazon CloudFront"],ans:2,exp:"AWS Fargate runs containers serverlessly — you define the container and Fargate handles the infrastructure."},
+  {w:2,q:"What is a Security Group in AWS?",opts:["A) A group of IAM users","B) A virtual firewall that controls inbound and outbound traffic to instances","C) A billing category","D) A type of storage"],ans:1,exp:"Security Groups act as virtual firewalls at the instance level, controlling traffic based on rules you define."},
+  {w:2,q:"What is the key benefit of cloud computing's pay-as-you-go model?",opts:["A) Unlimited free usage","B) No need for security","C) Pay only for resources you actually use","D) Hardware is included at no cost"],ans:2,exp:"Pay-as-you-go means you pay only for the compute, storage, and bandwidth you consume — no upfront hardware costs."},
+  {w:2,q:"What does Amazon DynamoDB provide?",opts:["A) A relational database","B) A fully managed NoSQL database with single-digit millisecond performance","C) A virtual machine","D) A file storage system"],ans:1,exp:"DynamoDB is a serverless NoSQL database designed for high-performance applications at any scale."},
+  {w:2,q:"Which AWS service provides block storage for EC2 instances?",opts:["A) Amazon S3","B) Amazon EBS","C) Amazon Glacier","D) Amazon RDS"],ans:1,exp:"Amazon EBS (Elastic Block Store) provides persistent block-level storage volumes for EC2 instances."},
+
+  // ===== WEEK 3 (10 questions): Cloud Economics, Architecture, Pricing =====
+  {w:3,q:"What is the AWS Shared Responsibility Model?",opts:["A) AWS manages everything, customers manage nothing","B) Customers manage everything, AWS manages nothing","C) AWS secures the cloud infrastructure; customers secure what they put in it","D) Security is optional in the cloud"],ans:2,exp:"Under shared responsibility, AWS handles security OF the cloud (hardware, facilities) and customers handle security IN the cloud (data, access, configuration)."},
+  {w:3,q:"What tool helps estimate the cost of AWS services before deployment?",opts:["A) AWS CloudTrail","B) AWS Pricing Calculator","C) Amazon Inspector","D) AWS Config"],ans:1,exp:"AWS Pricing Calculator lets you model and estimate costs for AWS solutions before building them."},
+  {w:3,q:"Which AWS service helps you visualize and manage your AWS spending over time?",opts:["A) AWS Budgets","B) AWS Cost Explorer","C) Amazon CloudWatch","D) AWS Trusted Advisor"],ans:1,exp:"AWS Cost Explorer provides charts and reports to visualize, understand, and manage AWS costs and usage over time."},
+  {w:3,q:"What is a hypervisor in cloud computing?",opts:["A) A type of database","B) Software that creates and manages virtual machines on physical hardware","C) A monitoring dashboard","D) A pricing model"],ans:1,exp:"A hypervisor is software that sits on physical hardware and creates virtual machines, enabling multiple OS instances on one server."},
+  {w:3,q:"What is the AWS Free Tier?",opts:["A) A premium support plan","B) Free access to selected AWS services for 12 months or always-free limits","C) A VPN service","D) A training course"],ans:1,exp:"The AWS Free Tier offers free usage of selected services — some for 12 months, some always free, and some as trials."},
+  {w:3,q:"What is Infrastructure as Code (IaC)?",opts:["A) Writing application code","B) Managing infrastructure through machine-readable definition files instead of manual setup","C) A type of database","D) A pricing model"],ans:1,exp:"IaC lets you define and provision infrastructure using code templates, making deployments repeatable and version-controlled."},
+  {w:3,q:"Which AWS service provides Infrastructure as Code using JSON or YAML templates?",opts:["A) Amazon EC2","B) AWS CloudFormation","C) Amazon S3","D) AWS IAM"],ans:1,exp:"AWS CloudFormation uses templates written in JSON or YAML to automate the provisioning of AWS resources."},
+  {w:3,q:"What does CapEx vs OpEx mean in cloud economics?",opts:["A) Capital Expenditure (upfront hardware) vs Operational Expenditure (pay-as-you-go)","B) Two types of databases","C) Two AWS Regions","D) Two security models"],ans:0,exp:"CapEx is upfront spending on physical infrastructure. Cloud shifts this to OpEx — ongoing pay-as-you-go costs with no upfront investment."},
+  {w:3,q:"What is an Amazon Machine Image (AMI)?",opts:["A) A physical server","B) A template containing the software configuration to launch an EC2 instance","C) A storage bucket","D) A network gateway"],ans:1,exp:"An AMI is a pre-configured template with an OS and software used to launch EC2 instances."},
+  {w:3,q:"What is the purpose of a NAT Gateway in a VPC?",opts:["A) To host a website","B) To allow private subnet instances to access the internet without being publicly accessible","C) To store data","D) To manage IAM users"],ans:1,exp:"A NAT Gateway lets instances in private subnets reach the internet for updates and patches without exposing them to inbound internet traffic."},
+
+  // ===== WEEK 4 (10 questions): Security, IAM, Compliance =====
+  {w:4,q:"What is AWS IAM used for?",opts:["A) Storing files","B) Managing users, groups, roles, and their permissions to AWS services","C) Hosting websites","D) Monitoring costs"],ans:1,exp:"AWS IAM (Identity and Access Management) lets you control who can access which AWS resources and what they can do."},
+  {w:4,q:"What is the principle of least privilege?",opts:["A) Give all users admin access","B) Grant only the minimum permissions needed to perform a task","C) Remove all permissions","D) Use only one AWS service"],ans:1,exp:"Least privilege means each user or service gets only the exact permissions required — nothing more — reducing security risk."},
+  {w:4,q:"Which AWS service provides DDoS protection?",opts:["A) AWS IAM","B) AWS Shield","C) Amazon S3","D) AWS CloudFormation"],ans:1,exp:"AWS Shield provides managed DDoS protection — Shield Standard is free and automatic; Shield Advanced offers enhanced protection."},
+  {w:4,q:"What does AWS CloudTrail do?",opts:["A) Delivers content to edge locations","B) Logs all API calls and account activity for auditing","C) Manages databases","D) Creates virtual machines"],ans:1,exp:"CloudTrail records every API call made in your AWS account, providing an audit trail for security and compliance."},
+  {w:4,q:"What is multi-factor authentication (MFA)?",opts:["A) Using two or more verification methods to prove identity","B) A type of storage encryption","C) A pricing model","D) A networking protocol"],ans:0,exp:"MFA adds an extra layer of security by requiring something you know (password) plus something you have (MFA device or code)."},
+  {w:4,q:"Which AWS service detects threats using machine learning?",opts:["A) AWS Config","B) Amazon GuardDuty","C) AWS Budgets","D) Amazon S3"],ans:1,exp:"Amazon GuardDuty continuously monitors for malicious activity and unauthorized behavior using machine learning and threat intelligence."},
+  {w:4,q:"What is AWS KMS used for?",opts:["A) Managing Kubernetes clusters","B) Creating and managing encryption keys for data protection","C) Monitoring CPU usage","D) Load balancing traffic"],ans:1,exp:"AWS KMS (Key Management Service) creates and controls encryption keys used to encrypt data across AWS services."},
+  {w:4,q:"What does AWS WAF protect against?",opts:["A) Hardware failures","B) Common web exploits like SQL injection and cross-site scripting","C) High electricity bills","D) Slow internet speeds"],ans:1,exp:"AWS WAF (Web Application Firewall) filters web traffic and protects applications from common attacks like SQL injection and XSS."},
+  {w:4,q:"What is the purpose of AWS Artifact?",opts:["A) To build mobile apps","B) To access AWS compliance reports and certifications","C) To create virtual networks","D) To manage databases"],ans:1,exp:"AWS Artifact provides on-demand access to AWS security and compliance documents like SOC reports and ISO certifications."},
+  {w:4,q:"What is a Network ACL (NACL) in AWS?",opts:["A) A type of database","B) A stateless firewall that controls traffic at the subnet level","C) A monitoring tool","D) A pricing calculator"],ans:1,exp:"NACLs are stateless firewalls that evaluate inbound and outbound rules at the subnet level, providing an additional layer of defense."},
+
+  // ===== WEEK 5 (10 questions): Monitoring, Auto Scaling, Disaster Recovery =====
+  {w:5,q:"What does Amazon CloudWatch monitor?",opts:["A) Only EC2 instances","B) AWS resources and applications with metrics, logs, and alarms","C) IAM users only","D) S3 buckets only"],ans:1,exp:"CloudWatch collects metrics, logs, and events from AWS resources and applications, and triggers alarms based on thresholds."},
+  {w:5,q:"What is Auto Scaling in AWS?",opts:["A) Manually adding servers","B) Automatically adjusting the number of instances based on demand","C) A type of storage","D) A security feature"],ans:1,exp:"Auto Scaling automatically adds or removes EC2 instances based on demand to maintain performance and minimize costs."},
+  {w:5,q:"What is the purpose of an Elastic Load Balancer (ELB)?",opts:["A) To store data","B) To distribute incoming traffic across multiple targets for high availability","C) To encrypt data","D) To manage DNS"],ans:1,exp:"ELB distributes incoming application traffic across multiple targets (EC2 instances, containers) across Availability Zones."},
+  {w:5,q:"What is a Multi-AZ deployment in Amazon RDS?",opts:["A) Running a database in multiple Regions","B) Running a primary and standby database in different Availability Zones for automatic failover","C) A type of pricing model","D) A serverless database option"],ans:1,exp:"Multi-AZ creates a standby replica in a different AZ — if the primary fails, RDS automatically fails over to the standby."},
+  {w:5,q:"What does Amazon SNS do?",opts:["A) Stores objects in the cloud","B) Sends notifications via email, SMS, or push to subscribers","C) Manages databases","D) Creates virtual networks"],ans:1,exp:"Amazon SNS (Simple Notification Service) is a pub/sub messaging service that sends notifications to subscribers."},
+  {w:5,q:"What is the purpose of AWS Trusted Advisor?",opts:["A) To create IAM users","B) To provide best-practice recommendations on cost, performance, security, fault tolerance, and service limits","C) To host websites","D) To manage encryption keys"],ans:1,exp:"Trusted Advisor inspects your AWS environment and recommends improvements across five categories including cost and security."},
+  {w:5,q:"What is Amazon Route 53?",opts:["A) A load balancer","B) A scalable DNS web service for domain registration and routing","C) A database service","D) A compute service"],ans:1,exp:"Route 53 is AWS's DNS service — it routes users to applications, manages domains, and performs health checks."},
+  {w:5,q:"What is the purpose of S3 versioning?",opts:["A) To make S3 faster","B) To keep multiple versions of an object to protect against accidental deletes or overwrites","C) To reduce costs","D) To encrypt data"],ans:1,exp:"S3 versioning preserves every version of every object, allowing you to recover from accidental deletions or overwrites."},
+  {w:5,q:"What is AWS Systems Manager used for?",opts:["A) Managing IAM policies only","B) Providing operational visibility and control of AWS resources from a unified interface","C) Creating VPCs","D) Running serverless functions"],ans:1,exp:"Systems Manager gives you a unified interface to view operational data, automate tasks, and manage resources across AWS."},
+  {w:5,q:"What is a bastion host?",opts:["A) A type of database","B) A hardened server in a public subnet that provides secure SSH access to instances in private subnets","C) A load balancer","D) A content delivery endpoint"],ans:1,exp:"A bastion host (jump box) sits in a public subnet and lets administrators securely access instances in private subnets via SSH."},
+
+  // ===== WEEK 6 (10 questions): Well-Architected, Pricing, Support, Review =====
+  {w:6,q:"Which AWS service lets you run code without provisioning or managing servers?",opts:["A) Amazon EC2","B) AWS Lambda","C) Amazon ECS","D) AWS Elastic Beanstalk"],ans:1,exp:"Lambda is AWS's serverless compute service — upload code and it runs on demand with no server management."},
+  {w:6,q:"What does the AWS Well-Architected Framework help you do?",opts:["A) Automate billing","B) Build secure, high-performing, resilient, and efficient infrastructure","C) Create IAM users","D) Monitor network traffic only"],ans:1,exp:"The Well-Architected Framework provides best practices across six pillars to evaluate and improve cloud architectures."},
+  {w:6,q:"Which pillar of the Well-Architected Framework focuses on minimizing environmental impact?",opts:["A) Cost Optimization","B) Reliability","C) Sustainability","D) Operational Excellence"],ans:2,exp:"Sustainability is the sixth pillar, helping organizations minimize the environmental impact of their cloud workloads."},
+  {w:6,q:"What is the purpose of Amazon CloudFront?",opts:["A) Manage DNS records","B) Deliver content with low latency through a global CDN","C) Store objects in the cloud","D) Monitor application logs"],ans:1,exp:"CloudFront is a Content Delivery Network that caches content at edge locations worldwide for faster delivery."},
+  {w:6,q:"Which AWS support plan provides 24/7 phone, email, and chat access to Cloud Support Engineers?",opts:["A) Basic","B) Developer","C) Business","D) Free Tier"],ans:2,exp:"The Business support plan provides 24/7 access to Cloud Support Engineers via phone, email, and chat."},
+  {w:6,q:"What is the benefit of using Reserved Instances compared to On-Demand pricing?",opts:["A) No commitment required","B) Up to 72% cost savings with a 1- or 3-year commitment","C) Free usage for 12 months","D) Automatic scaling"],ans:1,exp:"Reserved Instances offer significant discounts over On-Demand pricing in exchange for a 1-year or 3-year commitment."},
+  {w:6,q:"Which AWS service provides a central place to manage multiple AWS accounts?",opts:["A) AWS IAM","B) AWS Organizations","C) AWS Config","D) Amazon Inspector"],ans:1,exp:"AWS Organizations centrally manages billing, access, compliance, and security across multiple AWS accounts."},
+  {w:6,q:"What does 'elasticity' mean in cloud computing?",opts:["A) Data is encrypted at rest","B) Resources automatically scale up or down based on demand","C) Services are available in multiple regions","D) Costs are fixed monthly"],ans:1,exp:"Elasticity means the system automatically adds or removes resources to match current workload demands."},
+  {w:6,q:"Which service would you use to estimate the cost of an AWS solution before deploying it?",opts:["A) AWS Cost Explorer","B) AWS Budgets","C) AWS Pricing Calculator","D) AWS Trusted Advisor"],ans:2,exp:"AWS Pricing Calculator lets you model and estimate costs for AWS services before you build or migrate."},
+  {w:6,q:"In the Shared Responsibility Model, which is the CUSTOMER's responsibility?",opts:["A) Physical security of data centers","B) Hardware maintenance","C) Configuring security groups and IAM policies","D) Managing the hypervisor"],ans:2,exp:"AWS secures the infrastructure; customers secure their data, applications, and access configurations."}
+];
+
+let questions, current, correct, wrong, answered;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function startGame() {
+  questions = shuffle([...ALL_QUESTIONS]);
+  current = 0; correct = 0; wrong = 0; answered = false;
+  document.getElementById('intro-screen').classList.remove('active');
+  document.getElementById('results-screen').classList.remove('active');
+  document.getElementById('game-screen').classList.add('active');
+  buildTrack();
+  showQuestion();
+}
+
+function buildTrack() {
+  const t = document.getElementById('track');
+  t.innerHTML = '';
+  for (let i = 0; i < questions.length; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'track-seg';
+    seg.id = 'seg-' + i;
+    t.appendChild(seg);
+  }
+}
+
+function showQuestion() {
+  answered = false;
+  const q = questions[current];
+  const area = document.getElementById('q-area');
+  document.getElementById('q-num').textContent = (current + 1) + '/' + questions.length;
+  document.getElementById('s-correct').textContent = correct;
+  document.getElementById('s-wrong').textContent = wrong;
+  document.getElementById('s-pct').textContent = (current > 0 ? Math.round(correct / current * 100) : 0) + '%';
+
+  // Update track
+  for (let i = 0; i < questions.length; i++) {
+    const seg = document.getElementById('seg-' + i);
+    if (i === current) seg.className = 'track-seg current';
+    else if (i < current) ; // already set
+    else seg.className = 'track-seg';
+  }
+
+  area.innerHTML = `
+    <div class="q-card">
+      <div class="q-week">Week ${q.w}</div>
+      <div class="q-text">${q.q}</div>
+      <div class="options">
+        ${q.opts.map((o, i) => `<button class="opt-btn" onclick="answer(${i})">${o}</button>`).join('')}
+      </div>
+      <div class="explain" style="display:none" id="explain-box"></div>
+    </div>
+    <button class="next-btn" style="display:none" id="next-btn" onclick="nextQ()">Next Question →</button>
+  `;
+}
+
+function answer(idx) {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  const btns = document.querySelectorAll('.opt-btn');
+  btns.forEach(b => b.disabled = true);
+
+  const seg = document.getElementById('seg-' + current);
+
+  if (idx === q.ans) {
+    btns[idx].classList.add('selected-correct');
+    correct++;
+    seg.className = 'track-seg done';
+  } else {
+    btns[idx].classList.add('selected-wrong');
+    btns[q.ans].classList.add('reveal-correct');
+    wrong++;
+    seg.className = 'track-seg wrong-seg';
+  }
+
+  document.getElementById('s-correct').textContent = correct;
+  document.getElementById('s-wrong').textContent = wrong;
+  document.getElementById('s-pct').textContent = Math.round(correct / (current + 1) * 100) + '%';
+
+  const explainBox = document.getElementById('explain-box');
+  explainBox.innerHTML = `<strong>${idx === q.ans ? '✓ Correct!' : '✗ Incorrect.'}</strong> ${q.exp}`;
+  explainBox.style.display = 'block';
+
+  const nextBtn = document.getElementById('next-btn');
+  nextBtn.style.display = 'block';
+  nextBtn.textContent = current < questions.length - 1 ? 'Next Question →' : 'See Results →';
+}
+
+function nextQ() {
+  current++;
+  if (current >= questions.length) {
+    showResults();
+  } else {
+    showQuestion();
+  }
+}
+
+function showResults() {
+  document.getElementById('game-screen').classList.remove('active');
+  document.getElementById('results-screen').classList.add('active');
+  const pct = Math.round(correct / questions.length * 100);
+  document.getElementById('r-score').textContent = correct;
+  document.getElementById('r-correct').textContent = correct;
+  document.getElementById('r-wrong').textContent = wrong;
+  document.getElementById('r-pct').textContent = pct + '%';
+
+  let msg = '';
+  if (pct >= 90) msg = '🏆 Outstanding! You are ready for the AWS Cloud Practitioner exam!';
+  else if (pct >= 80) msg = '🎯 Great job! A little more review and you will ace it.';
+  else if (pct >= 70) msg = '👍 Good effort! Focus on the topics you missed.';
+  else if (pct >= 60) msg = '📚 Keep studying! Review the explanations for the questions you missed.';
+  else msg = '💪 Don\'t give up! Go through the course material again and retry.';
+  document.getElementById('r-msg').textContent = msg;
+}
+</script>
